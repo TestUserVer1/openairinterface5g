@@ -425,32 +425,25 @@ long get_K2(NR_BWP_Uplink_t *ubwp, int time_domain_assignment, int mu) {
 }
 
 int8_t select_ul_harq_pid(NR_UE_sched_ctrl_t *sched_ctrl) {
-
-  uint8_t hrq_id;
-  uint8_t max_ul_harq_pids = 3; // temp: for testing
+  const uint8_t max_ul_harq_pids = 3; // temp: for testing
   // schedule active harq processes
-  NR_UE_ul_harq_t cur_harq;
-  for (hrq_id=0; hrq_id < max_ul_harq_pids; hrq_id++) {
-    cur_harq = sched_ctrl->ul_harq_processes[hrq_id];
-    if (cur_harq.state==ACTIVE_NOT_SCHED) {
-#ifdef UL_HARQ_PRINT
-      printf("[SCHED] Found ulharq id %d, scheduling it for retransmission\n",hrq_id);
-#endif
+  for (uint8_t hrq_id = 0; hrq_id < max_ul_harq_pids; hrq_id++) {
+    NR_UE_ul_harq_t *cur_harq = &sched_ctrl->ul_harq_processes[hrq_id];
+    if (cur_harq->state == ACTIVE_NOT_SCHED) {
+      LOG_D(MAC, "Found ulharq id %d, scheduling it for retransmission\n", hrq_id);
       return hrq_id;
     }
   }
 
   // schedule new harq processes
-  for (hrq_id=0; hrq_id < max_ul_harq_pids; hrq_id++) {
-    cur_harq = sched_ctrl->ul_harq_processes[hrq_id];
-    if (cur_harq.state==INACTIVE) {
-#ifdef UL_HARQ_PRINT
-      printf("[SCHED] Found new ulharq id %d, scheduling it\n",hrq_id);
-#endif
+  for (uint8_t hrq_id=0; hrq_id < max_ul_harq_pids; hrq_id++) {
+    NR_UE_ul_harq_t *cur_harq = &sched_ctrl->ul_harq_processes[hrq_id];
+    if (cur_harq->state == INACTIVE) {
+      LOG_D(MAC, "Found new ulharq id %d, scheduling it\n", hrq_id);
       return hrq_id;
     }
   }
-  LOG_E(MAC,"All UL HARQ processes are busy. Cannot schedule ULSCH\n");
+  LOG_E(MAC, "All UL HARQ processes are busy. Cannot schedule ULSCH\n");
   return -1;
 }
 
