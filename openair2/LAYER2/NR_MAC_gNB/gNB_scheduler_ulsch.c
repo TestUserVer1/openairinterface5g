@@ -31,7 +31,7 @@
 
 #include "LAYER2/NR_MAC_gNB/mac_proto.h"
 #include "executables/softmodem-common.h"
-//#define ENABLE_MAC_PAYLOAD_DEBUG 1
+#include "common/utils/nr/nr_common.h"
 
 
 void nr_process_mac_pdu(
@@ -409,6 +409,49 @@ void nr_rx_sdu(const module_id_t gnb_mod_idP,
 
     }
   }
+}
+
+long get_K2(NR_BWP_Uplink_t *ubwp, int time_domain_assignment, int mu) {
+  DevAssert(ubwp);
+  const NR_PUSCH_TimeDomainResourceAllocation_t *tda_list = ubwp->bwp_Common->pusch_ConfigCommon->choice.setup->pusch_TimeDomainAllocationList->list.array[time_domain_assignment];
+  if (tda_list->k2)
+    return *tda_list->k2;
+  else if (mu < 2)
+    return 1;
+  else if (mu == 2)
+    return 2;
+  else
+    return 3;
+}
+
+int8_t select_ul_harq_pid(NR_UE_sched_ctrl_t *sched_ctrl) {
+
+  uint8_t hrq_id;
+  uint8_t max_ul_harq_pids = 3; // temp: for testing
+  // schedule active harq processes
+  NR_UE_ul_harq_t cur_harq;
+  for (hrq_id=0; hrq_id < max_ul_harq_pids; hrq_id++) {
+    cur_harq = sched_ctrl->ul_harq_processes[hrq_id];
+    if (cur_harq.state==ACTIVE_NOT_SCHED) {
+#ifdef UL_HARQ_PRINT
+      printf("[SCHED] Found ulharq id %d, scheduling it for retransmission\n",hrq_id);
+#endif
+      return hrq_id;
+    }
+  }
+
+  // schedule new harq processes
+  for (hrq_id=0; hrq_id < max_ul_harq_pids; hrq_id++) {
+    cur_harq = sched_ctrl->ul_harq_processes[hrq_id];
+    if (cur_harq.state==INACTIVE) {
+#ifdef UL_HARQ_PRINT
+      printf("[SCHED] Found new ulharq id %d, scheduling it\n",hrq_id);
+#endif
+      return hrq_id;
+    }
+  }
+  LOG_E(MAC,"All UL HARQ processes are busy. Cannot schedule ULSCH\n");
+  return -1;
 }
 
 void nr_schedule_ulsch(module_id_t module_id,
