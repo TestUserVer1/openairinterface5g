@@ -515,6 +515,8 @@ void nr_schedule_ulsch(module_id_t module_id,
     }
     UE_info->num_pdcch_cand[UE_id][cid]++;
 
+    const uint8_t mcs = 9;
+
     nfapi_nr_ul_dci_request_t *UL_dci_req = &RC.nrmac[module_id]->UL_dci_req[0];
     UL_dci_req->SFN = frame;
     UL_dci_req->Slot = slot;
@@ -570,7 +572,7 @@ void nr_schedule_ulsch(module_id_t module_id,
     else
       pusch_pdu->data_scrambling_id = *scc->physCellId;
 
-    pusch_pdu->mcs_index = 9;
+    pusch_pdu->mcs_index = mcs;
     if (pusch_pdu->transform_precoding)
       pusch_pdu->mcs_table = get_pusch_mcs_table(pusch_Config->mcs_Table,
                                                  0,
