@@ -516,6 +516,9 @@ void nr_schedule_ulsch(module_id_t module_id,
     UE_info->num_pdcch_cand[UE_id][cid]++;
 
     const uint8_t mcs = 9;
+    const uint16_t rbStart = 0;
+    const uint16_t rbSize = get_softmodem_params()->phy_test ?
+      50 : NRRIV2BW(ubwp->bwp_Common->genericParameters.locationAndBandwidth,275);
 
     nfapi_nr_ul_dci_request_t *UL_dci_req = &RC.nrmac[module_id]->UL_dci_req[0];
     UL_dci_req->SFN = frame;
@@ -604,12 +607,8 @@ void nr_schedule_ulsch(module_id_t module_id,
     AssertFatal(pusch_Config->resourceAllocation == NR_PUSCH_Config__resourceAllocation_resourceAllocationType1,
                 "Only frequency resource allocation type 1 is currently supported\n");
     pusch_pdu->resource_alloc = 1; //type 1
-    pusch_pdu->rb_start = 0;
-    if (get_softmodem_params()->phy_test)
-      pusch_pdu->rb_size = 50;
-    else
-      pusch_pdu->rb_size = pusch_pdu->bwp_size;
-
+    pusch_pdu->rb_start = rbStart;
+    pusch_pdu->rb_size = rbSize;
     pusch_pdu->vrb_to_prb_mapping = 0;
 
     if (pusch_Config->frequencyHopping==NULL)
