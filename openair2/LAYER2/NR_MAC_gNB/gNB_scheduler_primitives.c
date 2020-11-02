@@ -644,6 +644,249 @@ void nr_fill_nfapi_dl_pdu(int Mod_idP,
   dl_req->nPDUs += 2;
 }
 
+void nr_fill_nfapi_ul_pdu(int mod_id,
+                          nfapi_nr_ul_dci_request_t *ul_dci_req,
+                          NR_sched_pusch *pusch_sched,
+                          NR_CellGroupConfig_t *secondaryCellGroup,
+                          NR_BWP_Downlink_t *bwp,
+                          NR_BWP_Uplink_t *ubwp,
+                          rnti_t rnti,
+                          NR_SearchSpace_t *ss,
+                          NR_ControlResourceSet_t *coreset,
+                          uint8_t aggregation_level,
+                          int cce_index,
+                          int time_domain_assignment,
+                          int StartSymbolIndex,
+                          int NrOfSymbols,
+                          uint8_t mcs,
+                          int rbStart,
+                          int rbSize,
+                          uint8_t tpc0,
+                          int8_t harq_id,
+                          NR_UE_ul_harq_t *harq) {
+  gNB_MAC_INST *nr_mac = RC.nrmac[mod_id];
+  NR_COMMON_channels_t *cc = nr_mac->common_channels;
+  NR_ServingCellConfigCommon_t *scc = cc->ServingCellConfigCommon;
+  NR_PUSCH_Config_t *pusch_Config = ubwp->bwp_Dedicated->pusch_Config->choice.setup;
+  const struct NR_PUSCH_TimeDomainResourceAllocationList *tdaList =
+    ubwp->bwp_Common->pusch_ConfigCommon->choice.setup->pusch_TimeDomainAllocationList;
+
+
+  int dci_formats[2];
+  if (ss->searchSpaceType->choice.ue_Specific->dci_Formats)
+    dci_formats[0]  = NR_UL_DCI_FORMAT_0_1;
+  else
+    dci_formats[0]  = NR_UL_DCI_FORMAT_0_0;
+  int rnti_types[2] = { NR_RNTI_C, 0 };
+
+  nfapi_nr_pusch_pdu_t  *pusch_pdu = &pusch_sched->pusch_pdu;
+  memset(pusch_pdu,0,sizeof(nfapi_nr_pusch_pdu_t));
+  //Resource Allocation in time domain
+
+  pusch_pdu->start_symbol_index = StartSymbolIndex;
+  pusch_pdu->nr_of_symbols = NrOfSymbols;
+
+  pusch_pdu->pdu_bit_map = PUSCH_PDU_BITMAP_PUSCH_DATA;
+  pusch_pdu->rnti = rnti;
+  pusch_pdu->handle = 0; //not yet used
+
+  pusch_pdu->bwp_size  = NRRIV2BW(ubwp->bwp_Common->genericParameters.locationAndBandwidth,275);
+  pusch_pdu->bwp_start = NRRIV2PRBOFFSET(ubwp->bwp_Common->genericParameters.locationAndBandwidth,275);
+  pusch_pdu->subcarrier_spacing = ubwp->bwp_Common->genericParameters.subcarrierSpacing;
+  pusch_pdu->cyclic_prefix = 0;
+
+  if (!pusch_Config->transformPrecoder)
+    pusch_pdu->transform_precoding = !scc->uplinkConfigCommon->initialUplinkBWP->rach_ConfigCommon->choice.setup->msg3_transformPrecoder;
+  else
+    pusch_pdu->transform_precoding = *pusch_Config->transformPrecoder;
+
+  if (pusch_Config->dataScramblingIdentityPUSCH)
+    pusch_pdu->data_scrambling_id = *pusch_Config->dataScramblingIdentityPUSCH;
+  else
+    pusch_pdu->data_scrambling_id = *scc->physCellId;
+
+  pusch_pdu->mcs_index = mcs;
+  const int target_ss = NR_SearchSpace__searchSpaceType_PR_ue_Specific;
+  if (pusch_pdu->transform_precoding)
+    pusch_pdu->mcs_table = get_pusch_mcs_table(pusch_Config->mcs_Table,
+                                               0,
+                                               dci_formats[0],
+                                               rnti_types[0],
+                                               target_ss,
+                                               false);
+  else
+    pusch_pdu->mcs_table =
+        get_pusch_mcs_table(pusch_Config->mcs_TableTransformPrecoder,
+                            1,
+                            dci_formats[0],
+                            rnti_types[0],
+                            target_ss,
+                            false);
+
+  pusch_pdu->target_code_rate = nr_get_code_rate_ul(pusch_pdu->mcs_index,pusch_pdu->mcs_table);
+  pusch_pdu->qam_mod_order = nr_get_Qm_ul(pusch_pdu->mcs_index,pusch_pdu->mcs_table);
+  if (pusch_Config->tp_pi2BPSK) {
+    if (((pusch_pdu->mcs_table == 3) && (pusch_pdu->mcs_index < 2))
+        || ((pusch_pdu->mcs_table == 4) && (pusch_pdu->mcs_index < 6))) {
+      pusch_pdu->target_code_rate = pusch_pdu->target_code_rate>>1;
+      pusch_pdu->qam_mod_order = pusch_pdu->qam_mod_order<<1;
+    }
+  }
+  pusch_pdu->nrOfLayers = 1;
+
+  //Pusch Allocation in frequency domain [TS38.214, sec 6.1.2.2]
+  AssertFatal(pusch_Config->resourceAllocation == NR_PUSCH_Config__resourceAllocation_resourceAllocationType1,
+              "Only frequency resource allocation type 1 is currently supported\n");
+  pusch_pdu->resource_alloc = 1; //type 1
+  pusch_pdu->rb_start = rbStart;
+  pusch_pdu->rb_size = rbSize;
+  pusch_pdu->vrb_to_prb_mapping = 0;
+
+  if (pusch_Config->frequencyHopping==NULL)
+    pusch_pdu->frequency_hopping = 0;
+  else
+    pusch_pdu->frequency_hopping = 1;
+
+
+  // --------------------
+  // ------- DMRS -------
+  // --------------------
+  const int mapping_type = tdaList->list.array[time_domain_assignment]->mappingType;
+  NR_DMRS_UplinkConfig_t *NR_DMRS_UplinkConfig;
+  if (mapping_type == NR_PUSCH_TimeDomainResourceAllocation__mappingType_typeA)
+    NR_DMRS_UplinkConfig = pusch_Config->dmrs_UplinkForPUSCH_MappingTypeA->choice.setup;
+  else
+    NR_DMRS_UplinkConfig = pusch_Config->dmrs_UplinkForPUSCH_MappingTypeB->choice.setup;
+  if (NR_DMRS_UplinkConfig->dmrs_Type == NULL)
+    pusch_pdu->dmrs_config_type = 0;
+  else
+    pusch_pdu->dmrs_config_type = 1;
+  pusch_pdu->scid = 0;      // DMRS sequence initialization [TS38.211, sec 6.4.1.1.1]
+  if (pusch_pdu->transform_precoding) { // transform precoding disabled
+    long *scramblingid;
+    if (pusch_pdu->scid == 0)
+      scramblingid = NR_DMRS_UplinkConfig->transformPrecodingDisabled->scramblingID0;
+    else
+      scramblingid = NR_DMRS_UplinkConfig->transformPrecodingDisabled->scramblingID1;
+    if (scramblingid == NULL)
+      pusch_pdu->ul_dmrs_scrambling_id = *scc->physCellId;
+    else
+      pusch_pdu->ul_dmrs_scrambling_id = *scramblingid;
+  }
+  else {
+    pusch_pdu->ul_dmrs_scrambling_id = *scc->physCellId;
+    if (NR_DMRS_UplinkConfig->transformPrecodingEnabled->nPUSCH_Identity != NULL)
+      pusch_pdu->pusch_identity = *NR_DMRS_UplinkConfig->transformPrecodingEnabled->nPUSCH_Identity;
+    else
+      pusch_pdu->pusch_identity = *scc->physCellId;
+  }
+  pusch_dmrs_AdditionalPosition_t additional_pos;
+  if (NR_DMRS_UplinkConfig->dmrs_AdditionalPosition == NULL)
+    additional_pos = 2;
+  else {
+    if (*NR_DMRS_UplinkConfig->dmrs_AdditionalPosition == NR_DMRS_UplinkConfig__dmrs_AdditionalPosition_pos3)
+      additional_pos = 3;
+    else
+      additional_pos = *NR_DMRS_UplinkConfig->dmrs_AdditionalPosition;
+  }
+  pusch_maxLength_t pusch_maxLength;
+  if (NR_DMRS_UplinkConfig->maxLength == NULL)
+    pusch_maxLength = 1;
+  else
+    pusch_maxLength = 2;
+  uint16_t l_prime_mask = get_l_prime(pusch_pdu->nr_of_symbols, mapping_type, additional_pos, pusch_maxLength);
+  pusch_pdu->ul_dmrs_symb_pos = l_prime_mask << pusch_pdu->start_symbol_index;
+
+  pusch_pdu->num_dmrs_cdm_grps_no_data = 1;
+  pusch_pdu->dmrs_ports = 1;
+
+  // --------------------
+  // ------- PTRS -------
+  // --------------------
+  if (NR_DMRS_UplinkConfig->phaseTrackingRS != NULL) {
+    // TODO to be fixed from RRC config
+    uint8_t ptrs_mcs1 = 2;  // higher layer parameter in PTRS-UplinkConfig
+    uint8_t ptrs_mcs2 = 4;  // higher layer parameter in PTRS-UplinkConfig
+    uint8_t ptrs_mcs3 = 10; // higher layer parameter in PTRS-UplinkConfig
+    uint16_t n_rb0 = 25;    // higher layer parameter in PTRS-UplinkConfig
+    uint16_t n_rb1 = 75;    // higher layer parameter in PTRS-UplinkConfig
+    pusch_pdu->pusch_ptrs.ptrs_time_density = get_L_ptrs(ptrs_mcs1, ptrs_mcs2, ptrs_mcs3, pusch_pdu->mcs_index, pusch_pdu->mcs_table);
+    pusch_pdu->pusch_ptrs.ptrs_freq_density = get_K_ptrs(n_rb0, n_rb1, pusch_pdu->rb_size);
+    pusch_pdu->pusch_ptrs.ptrs_ports_list   = (nfapi_nr_ptrs_ports_t *) malloc(2*sizeof(nfapi_nr_ptrs_ports_t));
+    pusch_pdu->pusch_ptrs.ptrs_ports_list[0].ptrs_re_offset = 0;
+
+    pusch_pdu->pdu_bit_map |= PUSCH_PDU_BITMAP_PUSCH_PTRS; // enable PUSCH PTRS
+  }
+  else{
+    pusch_pdu->pdu_bit_map &= ~PUSCH_PDU_BITMAP_PUSCH_PTRS; // disable PUSCH PTRS
+  }
+
+  pusch_pdu->pusch_data.harq_process_id = harq_id;
+  pusch_pdu->pusch_data.new_data_indicator = harq->ndi;
+  pusch_pdu->pusch_data.rv_index = nr_rv_round_map[harq->round];
+
+  uint8_t num_dmrs_symb = 0;
+  for(int i = pusch_pdu->start_symbol_index; i < pusch_pdu->start_symbol_index + pusch_pdu->nr_of_symbols; i++)
+    num_dmrs_symb += (pusch_pdu->ul_dmrs_symb_pos >> i) & 1;
+
+  uint8_t N_PRB_DMRS;
+  if (pusch_pdu->dmrs_config_type == 0)
+    N_PRB_DMRS = pusch_pdu->num_dmrs_cdm_grps_no_data*6;
+  else
+    N_PRB_DMRS = pusch_pdu->num_dmrs_cdm_grps_no_data*4;
+
+  pusch_pdu->pusch_data.tb_size = nr_compute_tbs(pusch_pdu->qam_mod_order,
+                                                 pusch_pdu->target_code_rate,
+                                                 pusch_pdu->rb_size,
+                                                 pusch_pdu->nr_of_symbols,
+                                                 N_PRB_DMRS * num_dmrs_symb,
+                                                 0, //nb_rb_oh
+                                                 0,
+                                                 pusch_pdu->nrOfLayers)>>3;
+
+  pusch_pdu->pusch_data.num_cb = 0; //CBG not supported
+
+  nfapi_nr_ul_dci_request_pdus_t  *ul_dci_request_pdu;
+  ul_dci_request_pdu = &ul_dci_req->ul_dci_pdu_list[ul_dci_req->numPdus];
+  memset((void*)ul_dci_request_pdu,0,sizeof(nfapi_nr_ul_dci_request_pdus_t));
+  ul_dci_request_pdu->PDUType = NFAPI_NR_DL_TTI_PDCCH_PDU_TYPE;
+  ul_dci_request_pdu->PDUSize = (uint8_t)(2+sizeof(nfapi_nr_dl_tti_pdcch_pdu));
+  nfapi_nr_dl_tti_pdcch_pdu_rel15_t *pdcch_pdu_rel15 = &ul_dci_request_pdu->pdcch_pdu.pdcch_pdu_rel15;
+  ul_dci_req->numPdus+=1;
+
+  nr_configure_pdcch(nr_mac,
+                     pdcch_pdu_rel15,
+                     rnti,
+                     ss,
+                     coreset,
+                     scc,
+                     bwp,
+                     aggregation_level,
+                     cce_index);
+
+  dci_pdu_rel15_t dci_pdu_rel15[MAX_DCI_CORESET];
+  memset(dci_pdu_rel15, 0, sizeof(dci_pdu_rel15));
+  const int n_ubwp = secondaryCellGroup->spCellConfig->spCellConfigDedicated->uplinkConfig->uplinkBWP_ToAddModList->list.count;
+  config_uldci(ubwp,
+               pusch_pdu,
+               pdcch_pdu_rel15,
+               dci_pdu_rel15,
+               dci_formats,
+               rnti_types,
+               time_domain_assignment,
+               tpc0,
+               n_ubwp,
+               bwp->bwp_Id);
+  fill_dci_pdu_rel15(scc,
+                     secondaryCellGroup,
+                     pdcch_pdu_rel15,
+                     dci_pdu_rel15,
+                     dci_formats,
+                     rnti_types,
+                     pusch_pdu->bwp_size,
+                     bwp->bwp_Id);
+}
+
 void nr_configure_pdcch(gNB_MAC_INST *nr_mac,
                         nfapi_nr_dl_tti_pdcch_pdu_rel15_t *pdcch_pdu,
                         uint16_t rnti,
