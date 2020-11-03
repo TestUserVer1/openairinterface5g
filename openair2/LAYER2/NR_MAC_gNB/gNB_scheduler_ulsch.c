@@ -488,9 +488,10 @@ void nr_schedule_ulsch(module_id_t module_id,
    * period, slot 8 (for K2=2, this is at slot 6 in the gNB; because of UE
    * limitations).  Note that if K2 or the TDD configuration is changed, below
    * conditions might exclude each other and never be true */
-  const int slot_idx = (slot + K2) % num_slots_per_tdd;
-  if (is_xlsch_in_slot(ulsch_in_slot_bitmap, slot_idx)
-        && (!get_softmodem_params()->phy_test || slot_idx == 8)) {
+  const int sched_frame = frame + (slot + K2 >= num_slots_per_tdd);
+  const int sched_slot = (slot + K2) % num_slots_per_tdd;
+  if (is_xlsch_in_slot(ulsch_in_slot_bitmap, sched_slot)
+        && (!get_softmodem_params()->phy_test || sched_slot == 8)) {
 
     const int target_ss = NR_SearchSpace__searchSpaceType_PR_ue_Specific;
     NR_SearchSpace_t *ss = get_searchspace(bwp, target_ss);
@@ -520,13 +521,15 @@ void nr_schedule_ulsch(module_id_t module_id,
 
     uint16_t rnti = UE_info->rnti[UE_id];
 
-    int first_ul_slot = num_slots_per_tdd - ul_slots;
-    NR_sched_pusch *pusch_sched = &UE_info->UE_sched_ctrl[UE_id].sched_pusch[slot+K2-first_ul_slot];
-    pusch_sched->frame = frame;
-    pusch_sched->slot = slot + K2;
-    pusch_sched->active = true;
+    /* PUSCH in a later slot, but corresponding DCI now! */
+    nfapi_nr_ul_tti_request_t *future_ul_tti_req = &RC.nrmac[module_id]->UL_tti_req_ahead[0][sched_slot];
+    future_ul_tti_req->SFN = sched_frame;
+    future_ul_tti_req->Slot = sched_slot;
+    nfapi_nr_ul_dci_request_t *ul_dci_req = &RC.nrmac[module_id]->UL_dci_req[0];
+    ul_dci_req->SFN = frame;
+    ul_dci_req->Slot = slot;
 
-    LOG_D(MAC, "Scheduling UE specific PUSCH\n");
+    LOG_I(MAC, "%4d.%2d Scheduling UE specific PUCCH\n", frame, slot);
 
     const int startSymbolAndLength = tdaList->list.array[tda]->startSymbolAndLength;
     int StartSymbolIndex, NrOfSymbols;
@@ -542,36 +545,33 @@ void nr_schedule_ulsch(module_id_t module_id,
     NR_UE_ul_harq_t *cur_harq = &UE_info->UE_sched_ctrl[UE_id].ul_harq_processes[harq_id];
 
     cur_harq->state = ACTIVE_SCHED;
-    cur_harq->last_tx_slot = pusch_sched->slot;
-
-    nfapi_nr_ul_dci_request_t *UL_dci_req = &RC.nrmac[module_id]->UL_dci_req[0];
-    UL_dci_req->SFN = frame;
-    UL_dci_req->Slot = slot;
+    cur_harq->last_tx_slot = sched_slot;
 
     uint8_t tpc0 = UE_info->UE_sched_ctrl[UE_id].tpc0;
-    nr_fill_nfapi_ul_pdu(module_id,
-                         UL_dci_req,
-                         pusch_sched,
-                         secondaryCellGroup,
-                         bwp,
-                         ubwp,
-                         rnti,
-                         ss,
-                         coreset,
-                         aggregation_level,
-                         CCEIndex,
-                         tda,
-                         StartSymbolIndex,
-                         NrOfSymbols,
-                         mcs,
-                         rbStart,
-                         rbSize,
-                         tpc0,
-                         harq_id,
-                         cur_harq);
+    nfapi_nr_pusch_pdu_t *pusch_pdu = nr_fill_nfapi_ul_pdu(module_id,
+                                                           future_ul_tti_req,
+                                                           ul_dci_req,
+                                                           NULL,
+                                                           secondaryCellGroup,
+                                                           bwp,
+                                                           ubwp,
+                                                           rnti,
+                                                           ss,
+                                                           coreset,
+                                                           aggregation_level,
+                                                           CCEIndex,
+                                                           tda,
+                                                           StartSymbolIndex,
+                                                           NrOfSymbols,
+                                                           mcs,
+                                                           rbStart,
+                                                           rbSize,
+                                                           tpc0,
+                                                           harq_id,
+                                                           cur_harq);
 
     UE_info->mac_stats[UE_id].ulsch_rounds[cur_harq->round]++;
     if (cur_harq->round == 0)
-      UE_info->mac_stats[UE_id].ulsch_total_bytes_scheduled += pusch_sched->pusch_pdu.pusch_data.tb_size;
+      UE_info->mac_stats[UE_id].ulsch_total_bytes_scheduled += pusch_pdu->pusch_data.tb_size;
   }
 }

@@ -644,7 +644,8 @@ void nr_fill_nfapi_dl_pdu(int Mod_idP,
   dl_req->nPDUs += 2;
 }
 
-void nr_fill_nfapi_ul_pdu(int mod_id,
+nfapi_nr_pusch_pdu_t *nr_fill_nfapi_ul_pdu(int mod_id,
+                          nfapi_nr_ul_tti_request_t *ul_tti_req,
                           nfapi_nr_ul_dci_request_t *ul_dci_req,
                           NR_sched_pusch *pusch_sched,
                           NR_CellGroupConfig_t *secondaryCellGroup,
@@ -679,9 +680,11 @@ void nr_fill_nfapi_ul_pdu(int mod_id,
     dci_formats[0]  = NR_UL_DCI_FORMAT_0_0;
   int rnti_types[2] = { NR_RNTI_C, 0 };
 
-  nfapi_nr_pusch_pdu_t  *pusch_pdu = &pusch_sched->pusch_pdu;
+  ul_tti_req->pdus_list[ul_tti_req->n_pdus].pdu_type = NFAPI_NR_UL_CONFIG_PUSCH_PDU_TYPE;
+  ul_tti_req->pdus_list[ul_tti_req->n_pdus].pdu_size = sizeof(nfapi_nr_pusch_pdu_t);
+  nfapi_nr_pusch_pdu_t *pusch_pdu = &ul_tti_req->pdus_list[ul_tti_req->n_pdus].pusch_pdu;
   memset(pusch_pdu,0,sizeof(nfapi_nr_pusch_pdu_t));
-  //Resource Allocation in time domain
+  ul_tti_req->n_pdus+=1;
 
   pusch_pdu->start_symbol_index = StartSymbolIndex;
   pusch_pdu->nr_of_symbols = NrOfSymbols;
@@ -885,6 +888,7 @@ void nr_fill_nfapi_ul_pdu(int mod_id,
                      rnti_types,
                      pusch_pdu->bwp_size,
                      bwp->bwp_Id);
+  return pusch_pdu;
 }
 
 void nr_configure_pdcch(gNB_MAC_INST *nr_mac,

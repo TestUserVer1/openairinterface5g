@@ -162,7 +162,8 @@ void nr_fill_nfapi_dl_pdu(int Mod_id,
                           int ndi,
                           int round);
 
-void nr_fill_nfapi_ul_pdu(int mod_id,
+nfapi_nr_pusch_pdu_t *nr_fill_nfapi_ul_pdu(int mod_id,
+                          nfapi_nr_ul_tti_request_t *ul_tti_req,
                           nfapi_nr_ul_dci_request_t *ul_dci_req,
                           NR_sched_pusch *pusch_sched,
                           NR_CellGroupConfig_t *secondaryCellGroup,
@@ -217,12 +218,7 @@ void nr_schedule_uss_dlsch_phytest(module_id_t   module_idP,
                                    NR_sched_pucch *pucch_sched,
                                    nfapi_nr_dl_tti_pdsch_pdu_rel15_t *pdsch_config);
 
-void nr_schedule_pusch(int Mod_idP,
-                       int UE_id,
-                       int num_slots_per_tdd,
-                       int ul_slots,
-                       frame_t       frameP,
-                       sub_frame_t   slotP);
+void nr_schedule_pusch(int Mod_idP, frame_t frameP, sub_frame_t slotP);
 
 void nr_schedule_pucch(int Mod_idP,
                        int UE_id,
