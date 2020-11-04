@@ -492,6 +492,11 @@ void nr_simple_ulsch_preprocessor(module_id_t module_id,
     return;
   }
   UE_info->num_pdcch_cand[UE_id][cid]++;
+
+  sched_ctrl->sched_pusch->mcs = 9;
+  sched_ctrl->sched_pusch->rbStart = 0;
+  sched_ctrl->sched_pusch->rbSize = get_softmodem_params()->phy_test ?
+    50 : NRRIV2BW(sched_ctrl->active_ubwp->bwp_Common->genericParameters.locationAndBandwidth,275);
 }
 
 void nr_schedule_ulsch(module_id_t module_id,
@@ -530,11 +535,6 @@ void nr_schedule_ulsch(module_id_t module_id,
         && (!get_softmodem_params()->phy_test || sched_slot == 8)) {
 
     nr_simple_ulsch_preprocessor(module_id, frame, slot);
-
-    const uint8_t mcs = 9;
-    const uint16_t rbStart = 0;
-    const uint16_t rbSize = get_softmodem_params()->phy_test ?
-      50 : NRRIV2BW(sched_ctrl->active_ubwp->bwp_Common->genericParameters.locationAndBandwidth,275);
 
     uint16_t rnti = UE_info->rnti[UE_id];
 
@@ -581,9 +581,9 @@ void nr_schedule_ulsch(module_id_t module_id,
                                                            tda,
                                                            StartSymbolIndex,
                                                            NrOfSymbols,
-                                                           mcs,
-                                                           rbStart,
-                                                           rbSize,
+                                                           sched_ctrl->sched_pusch->mcs,
+                                                           sched_ctrl->sched_pusch->rbStart,
+                                                           sched_ctrl->sched_pusch->rbSize,
                                                            tpc0,
                                                            harq_id,
                                                            cur_harq);
@@ -591,5 +591,7 @@ void nr_schedule_ulsch(module_id_t module_id,
     UE_info->mac_stats[UE_id].ulsch_rounds[cur_harq->round]++;
     if (cur_harq->round == 0)
       UE_info->mac_stats[UE_id].ulsch_total_bytes_scheduled += pusch_pdu->pusch_data.tb_size;
+
+    sched_ctrl->sched_pusch->rbSize = 0;
   }
 }

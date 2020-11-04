@@ -647,7 +647,7 @@ void nr_fill_nfapi_dl_pdu(int Mod_idP,
 nfapi_nr_pusch_pdu_t *nr_fill_nfapi_ul_pdu(int mod_id,
                           nfapi_nr_ul_tti_request_t *ul_tti_req,
                           nfapi_nr_ul_dci_request_t *ul_dci_req,
-                          NR_sched_pusch *pusch_sched,
+                          NR_sched_pusch_t *pusch_sched,
                           NR_CellGroupConfig_t *secondaryCellGroup,
                           NR_BWP_Downlink_t *bwp,
                           NR_BWP_Uplink_t *ubwp,
@@ -2038,17 +2038,13 @@ int add_new_nr_ue(module_id_t mod_idP, rnti_t rntiP){
     UE_info->UE_sched_ctrl[UE_id].sched_pucch = (NR_sched_pucch **)malloc(num_slots_ul*sizeof(NR_sched_pucch *));
     for (int s=0; s<num_slots_ul;s++)
       UE_info->UE_sched_ctrl[UE_id].sched_pucch[s] = (NR_sched_pucch *)malloc(2*sizeof(NR_sched_pucch));
-    UE_info->UE_sched_ctrl[UE_id].sched_pusch = (NR_sched_pusch *)malloc(num_slots_ul*sizeof(NR_sched_pusch));
+    UE_info->UE_sched_ctrl[UE_id].sched_pusch = calloc(num_slots_ul, sizeof(NR_sched_pusch_t));
 
     for (int k=0; k<num_slots_ul; k++) {
       for (int l=0; l<2; l++)
         memset((void *) &UE_info->UE_sched_ctrl[UE_id].sched_pucch[k][l],
                0,
                sizeof(NR_sched_pucch));
-
-      memset((void *) &UE_info->UE_sched_ctrl[UE_id].sched_pusch[k],
-             0,
-             sizeof(NR_sched_pusch));
     }
     LOG_I(MAC, "gNB %d] Add NR UE_id %d : rnti %x\n",
           mod_idP,

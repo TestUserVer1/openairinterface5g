@@ -839,7 +839,7 @@ void schedule_fapi_ul_pdu(int Mod_idP,
     uint16_t rnti = UE_info->rnti[UE_id];
 
     int first_ul_slot = num_slots_per_tdd - ul_slots;
-    NR_sched_pusch *pusch_sched = &UE_info->UE_sched_ctrl[UE_id].sched_pusch[slotP+K2-first_ul_slot];
+    NR_sched_pusch_t *pusch_sched = &UE_info->UE_sched_ctrl[UE_id].sched_pusch[slotP+K2-first_ul_slot];
     pusch_sched->frame = frameP;
     pusch_sched->slot = slotP + K2;
     pusch_sched->active = true;
