@@ -354,6 +354,11 @@ void nr_rx_sdu(const module_id_t gnb_mod_idP,
                   bwpList->list.count);
       const int bwp_id = 1;
       UE_info->UE_sched_ctrl[UE_id].active_bwp = bwpList->list.array[bwp_id - 1];
+      struct NR_UplinkConfig__uplinkBWP_ToAddModList *ubwpList = ra->secondaryCellGroup->spCellConfig->spCellConfigDedicated->uplinkConfig->uplinkBWP_ToAddModList;
+      AssertFatal(ubwpList->list.count == 1,
+                  "uplinkBWP_ToAddModList has %d BWP!\n",
+                  ubwpList->list.count);
+      UE_info->UE_sched_ctrl[UE_id].active_ubwp = ubwpList->list.array[bwp_id - 1];
       LOG_I(MAC,
             "[gNB %d][RAPROC] PUSCH with TC_RNTI %x received correctly, "
             "adding UE MAC Context UE_id %d/RNTI %04x\n",
@@ -457,28 +462,22 @@ void nr_schedule_ulsch(module_id_t module_id,
   NR_COMMON_channels_t *cc = nr_mac->common_channels;
   NR_ServingCellConfigCommon_t *scc = cc->ServingCellConfigCommon;
 
-  const int bwp_id=1;
   const int mu = scc->uplinkConfigCommon->initialUplinkBWP->genericParameters.subcarrierSpacing;
   const int UE_id = 0;
   NR_UE_info_t *UE_info = &RC.nrmac[module_id]->UE_info;
   AssertFatal(UE_info->active[UE_id],"Cannot find UE_id %d is not active\n",UE_id);
 
-  NR_CellGroupConfig_t *secondaryCellGroup = UE_info->secondaryCellGroup[UE_id];
   NR_UE_sched_ctrl_t *sched_ctrl = &UE_info->UE_sched_ctrl[UE_id];
-
-  NR_BWP_Uplink_t *ubwp =
-      secondaryCellGroup->spCellConfig->spCellConfigDedicated->uplinkConfig
-          ->uplinkBWP_ToAddModList->list.array[bwp_id - 1];
 
   const int tda = 1; // hardcoded for the moment
   const struct NR_PUSCH_TimeDomainResourceAllocationList *tdaList =
-    ubwp->bwp_Common->pusch_ConfigCommon->choice.setup->pusch_TimeDomainAllocationList;
+    sched_ctrl->active_ubwp->bwp_Common->pusch_ConfigCommon->choice.setup->pusch_TimeDomainAllocationList;
   AssertFatal(tda < tdaList->list.count,
               "time domain assignment %d >= %d\n",
               tda,
               tdaList->list.count);
 
-  int K2 = get_K2(ubwp, tda, mu);
+  int K2 = get_K2(sched_ctrl->active_ubwp, tda, mu);
   /* check if slot is UL, and for phy test verify that it is in first TDD
    * period, slot 8 (for K2=2, this is at slot 6 in the gNB; because of UE
    * limitations).  Note that if K2 or the TDD configuration is changed, below
@@ -512,7 +511,7 @@ void nr_schedule_ulsch(module_id_t module_id,
     const uint8_t mcs = 9;
     const uint16_t rbStart = 0;
     const uint16_t rbSize = get_softmodem_params()->phy_test ?
-      50 : NRRIV2BW(ubwp->bwp_Common->genericParameters.locationAndBandwidth,275);
+      50 : NRRIV2BW(sched_ctrl->active_ubwp->bwp_Common->genericParameters.locationAndBandwidth,275);
 
     uint16_t rnti = UE_info->rnti[UE_id];
 
@@ -543,13 +542,14 @@ void nr_schedule_ulsch(module_id_t module_id,
     cur_harq->last_tx_slot = sched_slot;
 
     uint8_t tpc0 = UE_info->UE_sched_ctrl[UE_id].tpc0;
+    NR_CellGroupConfig_t *secondaryCellGroup = UE_info->secondaryCellGroup[UE_id];
     nfapi_nr_pusch_pdu_t *pusch_pdu = nr_fill_nfapi_ul_pdu(module_id,
                                                            future_ul_tti_req,
                                                            ul_dci_req,
                                                            NULL,
                                                            secondaryCellGroup,
                                                            sched_ctrl->active_bwp,
-                                                           ubwp,
+                                                           sched_ctrl->active_ubwp,
                                                            rnti,
                                                            ss,
                                                            coreset,
