@@ -535,75 +535,75 @@ void nr_schedule_ulsch(module_id_t module_id,
                        int num_slots_per_tdd,
                        int ul_slots,
                        uint64_t ulsch_in_slot_bitmap) {
-  const int UE_id = 0;
-  NR_UE_info_t *UE_info = &RC.nrmac[module_id]->UE_info;
-  AssertFatal(UE_info->active[UE_id],"Cannot find UE_id %d is not active\n",UE_id);
-
   nr_simple_ulsch_preprocessor(
       module_id, frame, slot, num_slots_per_tdd, ulsch_in_slot_bitmap);
 
-  NR_UE_sched_ctrl_t *sched_ctrl = &UE_info->UE_sched_ctrl[UE_id];
-  if (sched_ctrl->sched_pusch->rbSize <= 0)
-    return;
+  NR_UE_info_t *UE_info = &RC.nrmac[module_id]->UE_info;
+  const NR_UE_list_t *UE_list = &UE_info->list;
+  for (int UE_id = UE_list->head; UE_id >= 0; UE_id = UE_list->next[UE_id]) {
+    NR_UE_sched_ctrl_t *sched_ctrl = &UE_info->UE_sched_ctrl[UE_id];
+    if (sched_ctrl->sched_pusch->rbSize <= 0)
+      continue;
 
-  uint16_t rnti = UE_info->rnti[UE_id];
+    const rnti_t rnti = UE_info->rnti[UE_id];
 
-  /* PUSCH in a later slot, but corresponding DCI now! */
-  nfapi_nr_ul_tti_request_t *future_ul_tti_req = &RC.nrmac[module_id]->UL_tti_req_ahead[0][sched_ctrl->sched_pusch->slot];
-  future_ul_tti_req->SFN = sched_ctrl->sched_pusch->frame;
-  future_ul_tti_req->Slot = sched_ctrl->sched_pusch->slot;
-  nfapi_nr_ul_dci_request_t *ul_dci_req = &RC.nrmac[module_id]->UL_dci_req[0];
-  ul_dci_req->SFN = frame;
-  ul_dci_req->Slot = slot;
+    /* PUSCH in a later slot, but corresponding DCI now! */
+    nfapi_nr_ul_tti_request_t *future_ul_tti_req = &RC.nrmac[module_id]->UL_tti_req_ahead[0][sched_ctrl->sched_pusch->slot];
+    future_ul_tti_req->SFN = sched_ctrl->sched_pusch->frame;
+    future_ul_tti_req->Slot = sched_ctrl->sched_pusch->slot;
+    nfapi_nr_ul_dci_request_t *ul_dci_req = &RC.nrmac[module_id]->UL_dci_req[0];
+    ul_dci_req->SFN = frame;
+    ul_dci_req->Slot = slot;
 
-  LOG_I(MAC, "%4d.%2d Scheduling UE specific PUCCH\n", frame, slot);
+    LOG_D(MAC, "%4d.%2d Scheduling UE specific PUCCH\n", frame, slot);
 
-  const struct NR_PUSCH_TimeDomainResourceAllocationList *tdaList =
-    sched_ctrl->active_ubwp->bwp_Common->pusch_ConfigCommon->choice.setup->pusch_TimeDomainAllocationList;
-  const int tda = sched_ctrl->sched_pusch->time_domain_allocation;
-  const int startSymbolAndLength = tdaList->list.array[tda]->startSymbolAndLength;
-  int StartSymbolIndex, NrOfSymbols;
-  SLIV2SL(startSymbolAndLength,&StartSymbolIndex,&NrOfSymbols);
+    const struct NR_PUSCH_TimeDomainResourceAllocationList *tdaList =
+      sched_ctrl->active_ubwp->bwp_Common->pusch_ConfigCommon->choice.setup->pusch_TimeDomainAllocationList;
+    const int tda = sched_ctrl->sched_pusch->time_domain_allocation;
+    const int startSymbolAndLength = tdaList->list.array[tda]->startSymbolAndLength;
+    int StartSymbolIndex, NrOfSymbols;
+    SLIV2SL(startSymbolAndLength,&StartSymbolIndex,&NrOfSymbols);
 
 
-  // --------------------------------------------------------------------------------------------------------------------------------------------
+    // --------------------------------------------------------------------------------------------------------------------------------------------
 
-  //Pusch Allocation in frequency domain [TS38.214, sec 6.1.2.2]
-  //Optional Data only included if indicated in pduBitmap
-  int8_t harq_id = select_ul_harq_pid(&UE_info->UE_sched_ctrl[UE_id]);
-  if (harq_id < 0) return;
-  NR_UE_ul_harq_t *cur_harq = &UE_info->UE_sched_ctrl[UE_id].ul_harq_processes[harq_id];
+    //Pusch Allocation in frequency domain [TS38.214, sec 6.1.2.2]
+    //Optional Data only included if indicated in pduBitmap
+    int8_t harq_id = select_ul_harq_pid(&UE_info->UE_sched_ctrl[UE_id]);
+    if (harq_id < 0) return;
+    NR_UE_ul_harq_t *cur_harq = &UE_info->UE_sched_ctrl[UE_id].ul_harq_processes[harq_id];
 
-  cur_harq->state = ACTIVE_SCHED;
-  cur_harq->last_tx_slot = sched_ctrl->sched_pusch->slot;
+    cur_harq->state = ACTIVE_SCHED;
+    cur_harq->last_tx_slot = sched_ctrl->sched_pusch->slot;
 
-  uint8_t tpc0 = UE_info->UE_sched_ctrl[UE_id].tpc0;
-  NR_CellGroupConfig_t *secondaryCellGroup = UE_info->secondaryCellGroup[UE_id];
-  nfapi_nr_pusch_pdu_t *pusch_pdu = nr_fill_nfapi_ul_pdu(module_id,
-                                                         future_ul_tti_req,
-                                                         ul_dci_req,
-                                                         NULL,
-                                                         secondaryCellGroup,
-                                                         sched_ctrl->active_bwp,
-                                                         sched_ctrl->active_ubwp,
-                                                         rnti,
-                                                         sched_ctrl->search_space,
-                                                         sched_ctrl->coreset,
-                                                         sched_ctrl->aggregation_level,
-                                                         sched_ctrl->cce_index,
-                                                         tda,
-                                                         StartSymbolIndex,
-                                                         NrOfSymbols,
-                                                         sched_ctrl->sched_pusch->mcs,
-                                                         sched_ctrl->sched_pusch->rbStart,
-                                                         sched_ctrl->sched_pusch->rbSize,
-                                                         tpc0,
-                                                         harq_id,
-                                                         cur_harq);
+    uint8_t tpc0 = UE_info->UE_sched_ctrl[UE_id].tpc0;
+    NR_CellGroupConfig_t *secondaryCellGroup = UE_info->secondaryCellGroup[UE_id];
+    nfapi_nr_pusch_pdu_t *pusch_pdu = nr_fill_nfapi_ul_pdu(module_id,
+                                                           future_ul_tti_req,
+                                                           ul_dci_req,
+                                                           NULL,
+                                                           secondaryCellGroup,
+                                                           sched_ctrl->active_bwp,
+                                                           sched_ctrl->active_ubwp,
+                                                           rnti,
+                                                           sched_ctrl->search_space,
+                                                           sched_ctrl->coreset,
+                                                           sched_ctrl->aggregation_level,
+                                                           sched_ctrl->cce_index,
+                                                           tda,
+                                                           StartSymbolIndex,
+                                                           NrOfSymbols,
+                                                           sched_ctrl->sched_pusch->mcs,
+                                                           sched_ctrl->sched_pusch->rbStart,
+                                                           sched_ctrl->sched_pusch->rbSize,
+                                                           tpc0,
+                                                           harq_id,
+                                                           cur_harq);
 
-  UE_info->mac_stats[UE_id].ulsch_rounds[cur_harq->round]++;
-  if (cur_harq->round == 0)
-    UE_info->mac_stats[UE_id].ulsch_total_bytes_scheduled += pusch_pdu->pusch_data.tb_size;
+    UE_info->mac_stats[UE_id].ulsch_rounds[cur_harq->round]++;
+    if (cur_harq->round == 0)
+      UE_info->mac_stats[UE_id].ulsch_total_bytes_scheduled += pusch_pdu->pusch_data.tb_size;
 
-  sched_ctrl->sched_pusch->rbSize = 0;
+    sched_ctrl->sched_pusch->rbSize = 0;
+  }
 }
