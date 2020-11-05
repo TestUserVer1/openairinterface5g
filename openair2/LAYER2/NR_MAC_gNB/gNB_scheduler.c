@@ -471,7 +471,7 @@ void gNB_dlsch_ulsch_scheduler(module_id_t module_idP,
   }
 
   if (UE_info->active[UE_id]) {
-    // TbD once RACH is available, start ta_timer when UE is connected
+    LOG_D(MAC, "UE %d is active: doing uplink timing alignment procedures\n", UE_id);
     if (ue_sched_ctl->ta_timer)
       ue_sched_ctl->ta_timer--;
     if (ue_sched_ctl->ta_timer == 0) {
@@ -479,6 +479,7 @@ void gNB_dlsch_ulsch_scheduler(module_id_t module_idP,
       /* if time is up, then set the timer to not send it for 5 frames
       // regardless of the TA value */
       ue_sched_ctl->ta_timer = 100;
+      LOG_D(MAC, "[UE %d][%d.%d] UL timing alignment procedures: setting flag for Timing Advance application\n", UE_id, frame, slot);
     }
   }
 

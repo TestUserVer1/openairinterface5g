@@ -488,7 +488,7 @@ void nr_simple_dlsch_preprocessor(module_id_t module_id,
   /* Retrieve amount of data to send for this UE */
   sched_ctrl->num_total_bytes = 0;
   const int lcid = DL_SCH_LCID_DTCH;
-  const uint16_t rnti = UE_info->rnti[UE_id];
+  const rnti_t rnti = UE_info->rnti[UE_id];
   sched_ctrl->rlc_status[lcid] = mac_rlc_status_ind(module_id,
                                                     rnti,
                                                     module_id,
@@ -500,10 +500,10 @@ void nr_simple_dlsch_preprocessor(module_id_t module_id,
                                                     0,
                                                     0);
   sched_ctrl->num_total_bytes += sched_ctrl->rlc_status[lcid].bytes_in_buffer;
-  if (sched_ctrl->num_total_bytes == 0 && !get_softmodem_params()->phy_test)
+  if (sched_ctrl->num_total_bytes == 0 && !get_softmodem_params()->phy_test && !get_softmodem_params()->do_ra)
     return;
-  LOG_D(MAC,
-        "%d.%d, DTCH%d->DLSCH, RLC status %d bytes\n",
+  LOG_D(MAC, "[%s][%d.%d], DTCH%d->DLSCH, RLC status %d bytes\n",
+        __FUNCTION__,
         frame,
         slot,
         lcid,
@@ -636,7 +636,7 @@ void nr_schedule_ue_spec(module_id_t module_id,
   NR_UE_list_t *UE_list = &UE_info->list;
   for (int UE_id = UE_list->head; UE_id >= 0; UE_id = UE_list->next[UE_id]) {
     NR_UE_sched_ctrl_t *sched_ctrl = &UE_info->UE_sched_ctrl[UE_id];
-    if (sched_ctrl->rbSize <= 0 && !get_softmodem_params()->phy_test)
+    if (sched_ctrl->rbSize <= 0 && !get_softmodem_params()->phy_test && !get_softmodem_params()->do_ra)
       continue;
 
     const rnti_t rnti = UE_info->rnti[UE_id];
@@ -730,6 +730,7 @@ void nr_schedule_ue_spec(module_id_t module_id,
       LOG_W(MAC, "%d.%2d retransmission UE %d/RNTI %04x\n", frame, slot, UE_id, rnti);
     } else { /* initial transmission */
 
+      LOG_D(MAC, "[%s] Initial HARQ transmission in %d.%d\n", __FUNCTION__, frame, slot);
       /* reserve space for timing advance of UE if necessary,
        * nr_generate_dlsch_pdu() checks for ta_apply and add TA CE if necessary */
       const int ta_len = (sched_ctrl->ta_apply) ? 2 : 0;
@@ -781,7 +782,7 @@ void nr_schedule_ue_spec(module_id_t module_id,
 
         //ue_sched_ctl->uplane_inactivity_timer = 0;
       }
-      else if (get_softmodem_params()->phy_test) {
+      else if (get_softmodem_params()->phy_test || get_softmodem_params()->do_ra) {
         LOG_D(MAC, "Configuring DL_TX in %d.%d: random data\n", frame, slot);
         // fill dlsch_buffer with random data
         for (int i = 0; i < TBS; i++)
