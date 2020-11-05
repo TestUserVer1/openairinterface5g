@@ -493,7 +493,7 @@ void gNB_dlsch_ulsch_scheduler(module_id_t module_idP,
   // This schedules the DCI for Uplink and subsequently PUSCH
   // The decision about whether to schedule is done for each UE independently
   // inside
-  if (UE_info->active[UE_id] && slot < 10) {
+  if (slot < 10) {
     //int tda = 1; // time domain assignment hardcoded for now
     //schedule_fapi_ul_pdu(module_idP, frame, slot, num_slots_per_tdd, nr_ulmix_slots, tda, ulsch_in_slot_bitmap);
     nr_schedule_ulsch(module_idP, frame, slot, num_slots_per_tdd, nr_ulmix_slots, ulsch_in_slot_bitmap);
