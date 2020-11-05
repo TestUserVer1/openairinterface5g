@@ -331,11 +331,7 @@ int rrc_mac_config_req_gNB(module_id_t Mod_idP,
 
     /* dimension UL_tti_req_ahead for number of slots in frame */
     const uint8_t slots_per_frame[5] = {10, 20, 40, 80, 160};
-    const NR_TDD_UL_DL_Pattern_t *tdd_pattern =
-        &scc->tdd_UL_DL_ConfigurationCommon->pattern1;
-    const int num_slots_per_tdd =
-        slots_per_frame[*scc->ssbSubcarrierSpacing]
-            >> (7 - tdd_pattern->dl_UL_TransmissionPeriodicity);
+    const int num_slots_per_tdd = slots_per_frame[*scc->ssbSubcarrierSpacing];
     RC.nrmac[Mod_idP]->UL_tti_req_ahead[0] = calloc(num_slots_per_tdd, sizeof(nfapi_nr_ul_tti_request_t));
     AssertFatal(RC.nrmac[Mod_idP]->UL_tti_req_ahead[0],
                 "could not allocate memory for RC.nrmac[]->UL_tti_req_ahead[]\n");
