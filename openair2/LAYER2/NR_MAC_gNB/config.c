@@ -335,6 +335,10 @@ int rrc_mac_config_req_gNB(module_id_t Mod_idP,
     RC.nrmac[Mod_idP]->UL_tti_req_ahead[0] = calloc(num_slots_per_tdd, sizeof(nfapi_nr_ul_tti_request_t));
     AssertFatal(RC.nrmac[Mod_idP]->UL_tti_req_ahead[0],
                 "could not allocate memory for RC.nrmac[]->UL_tti_req_ahead[]\n");
+    uint8_t *vrb_map_UL = RC.nrmac[Mod_idP]->common_channels[0].vrb_map_UL;
+    vrb_map_UL = calloc(num_slots_per_tdd * 275, sizeof(*vrb_map_UL));
+    AssertFatal(RC.nrmac[Mod_idP]->common_channels[0].vrb_map_UL,
+                "could not allocate memory for RC.nrmac[]->common_channels[0].vrb_map_UL\n");
 
     LOG_I(MAC,"Configuring common parameters from NR ServingCellConfig\n");
 

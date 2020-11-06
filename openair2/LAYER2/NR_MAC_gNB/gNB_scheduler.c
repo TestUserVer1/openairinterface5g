@@ -447,7 +447,11 @@ void gNB_dlsch_ulsch_scheduler(module_id_t module_idP,
 
     // clear vrb_maps
     memset(cc[CC_id].vrb_map, 0, 275);
-    memset(cc[CC_id].vrb_map_UL, 0, 275);
+    // clear last scheduled slot's content (only)!
+    const int num_slots = slots_per_frame[*scc->ssbSubcarrierSpacing];
+    const int last_slot = (slot + num_slots - 1) % num_slots;
+    uint8_t *vrb_map_UL = cc[CC_id].vrb_map_UL;
+    memset(&vrb_map_UL[last_slot * 275], 0, sizeof(*vrb_map_UL) * 275);
 
     clear_nr_nfapi_information(RC.nrmac[module_idP], CC_id, frame, slot);
   }
@@ -497,8 +501,9 @@ void gNB_dlsch_ulsch_scheduler(module_id_t module_idP,
     //int tda = 1; // time domain assignment hardcoded for now
     //schedule_fapi_ul_pdu(module_idP, frame, slot, num_slots_per_tdd, nr_ulmix_slots, tda, ulsch_in_slot_bitmap);
     nr_schedule_ulsch(module_idP, frame, slot, num_slots_per_tdd, nr_ulmix_slots, ulsch_in_slot_bitmap);
-    nr_schedule_pusch(module_idP, frame, slot);
   }
+
+  nr_schedule_pusch(module_idP, frame, slot);
 
   if (UE_info->active[UE_id]
       && (is_xlsch_in_slot(dlsch_in_slot_bitmap, slot % num_slots_per_tdd))

@@ -189,8 +189,9 @@ typedef struct {
   NR_RA_t ra[NR_NB_RA_PROC_MAX];
   /// VRB map for common channels
   uint8_t vrb_map[275];
-  /// VRB map for common channels and retransmissions by PHICH
-  uint8_t vrb_map_UL[275];
+  /// VRB map for common channels and PUSCH, dynamically allocated because
+  /// length depends on number of slots and RBs
+  uint8_t *vrb_map_UL;
   /// number of subframe allocation pattern available for MBSFN sync area
   uint8_t num_sf_allocation_pattern;
   ///Number of active SSBs
