@@ -709,7 +709,7 @@ boolean_t rrc_pdcp_config_asn1_req(
   return 0;
 }
 
-void nr_DRB_preconfiguration(void)
+void nr_DRB_preconfiguration(uint16_t crnti)
 {
 
   NR_RadioBearerConfig_t             *rbconfig = NULL;
