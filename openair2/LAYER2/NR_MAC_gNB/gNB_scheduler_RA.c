@@ -634,8 +634,13 @@ void nr_add_msg3(module_id_t module_idP, int CC_id, frame_t frameP, sub_frame_t 
   LOG_I(MAC, "[gNB %d][RAPROC] Frame %d, Subframe %d : CC_id %d RA is active, Msg3 in (%d,%d)\n", module_idP, frameP, slotP, CC_id, ra->Msg3_frame, ra->Msg3_slot);
 
   nfapi_nr_ul_tti_request_t *future_ul_tti_req = &RC.nrmac[module_idP]->UL_tti_req_ahead[CC_id][ra->Msg3_slot];
-  future_ul_tti_req->SFN = ra->Msg3_frame;
-  future_ul_tti_req->Slot = ra->Msg3_slot;
+  AssertFatal(future_ul_tti_req->SFN == ra->Msg3_frame
+              && future_ul_tti_req->Slot == ra->Msg3_slot,
+              "future UL_tti_req's frame.slot %d.%d does not match PUSCH %d.%d\n",
+              future_ul_tti_req->SFN,
+              future_ul_tti_req->Slot,
+              ra->Msg3_frame,
+              ra->Msg3_slot);
   future_ul_tti_req->pdus_list[future_ul_tti_req->n_pdus].pdu_type = NFAPI_NR_UL_CONFIG_PUSCH_PDU_TYPE;
   future_ul_tti_req->pdus_list[future_ul_tti_req->n_pdus].pdu_size = sizeof(nfapi_nr_pusch_pdu_t);
   nfapi_nr_pusch_pdu_t *pusch_pdu = &future_ul_tti_req->pdus_list[future_ul_tti_req->n_pdus].pusch_pdu;
