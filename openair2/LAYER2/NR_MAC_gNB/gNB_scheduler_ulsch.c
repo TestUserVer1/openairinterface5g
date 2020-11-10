@@ -504,9 +504,9 @@ void nr_simple_ulsch_preprocessor(module_id_t module_id,
   while (rbStart + rbSize < bwpSize && !vrb_map_UL[rbStart+rbSize])
     rbSize++;
 
-  sched_ctrl->sched_pusch->time_domain_allocation = tda;
-  sched_ctrl->sched_pusch->slot = sched_slot;
-  sched_ctrl->sched_pusch->frame = sched_frame;
+  sched_ctrl->sched_pusch.time_domain_allocation = tda;
+  sched_ctrl->sched_pusch.slot = sched_slot;
+  sched_ctrl->sched_pusch.frame = sched_frame;
 
   const int target_ss = NR_SearchSpace__searchSpaceType_PR_ue_Specific;
   sched_ctrl->search_space = get_searchspace(sched_ctrl->active_bwp, target_ss);
@@ -532,13 +532,13 @@ void nr_simple_ulsch_preprocessor(module_id_t module_id,
   }
   UE_info->num_pdcch_cand[UE_id][cid]++;
 
-  sched_ctrl->sched_pusch->mcs = 9;
-  sched_ctrl->sched_pusch->rbStart = rbStart;
-  sched_ctrl->sched_pusch->rbSize = rbSize;
+  sched_ctrl->sched_pusch.mcs = 9;
+  sched_ctrl->sched_pusch.rbStart = rbStart;
+  sched_ctrl->sched_pusch.rbSize = rbSize;
 
   /* mark the corresponding RBs as used */
-  for (int rb = 0; rb < sched_ctrl->sched_pusch->rbSize; rb++)
-    vrb_map_UL[rb + sched_ctrl->sched_pusch->rbStart] = 1;
+  for (int rb = 0; rb < sched_ctrl->sched_pusch.rbSize; rb++)
+    vrb_map_UL[rb + sched_ctrl->sched_pusch.rbStart] = 1;
 }
 
 void nr_schedule_ulsch(module_id_t module_id,
@@ -554,21 +554,21 @@ void nr_schedule_ulsch(module_id_t module_id,
   const NR_UE_list_t *UE_list = &UE_info->list;
   for (int UE_id = UE_list->head; UE_id >= 0; UE_id = UE_list->next[UE_id]) {
     NR_UE_sched_ctrl_t *sched_ctrl = &UE_info->UE_sched_ctrl[UE_id];
-    if (sched_ctrl->sched_pusch->rbSize <= 0)
+    if (sched_ctrl->sched_pusch.rbSize <= 0)
       continue;
 
     const rnti_t rnti = UE_info->rnti[UE_id];
 
     /* PUSCH in a later slot, but corresponding DCI now! */
-    nfapi_nr_ul_tti_request_t *future_ul_tti_req = &RC.nrmac[module_id]->UL_tti_req_ahead[0][sched_ctrl->sched_pusch->slot];
-    AssertFatal(future_ul_tti_req->SFN == sched_ctrl->sched_pusch->frame
-                && future_ul_tti_req->Slot == sched_ctrl->sched_pusch->slot,
+    nfapi_nr_ul_tti_request_t *future_ul_tti_req = &RC.nrmac[module_id]->UL_tti_req_ahead[0][sched_ctrl->sched_pusch.slot];
+    AssertFatal(future_ul_tti_req->SFN == sched_ctrl->sched_pusch.frame
+                && future_ul_tti_req->Slot == sched_ctrl->sched_pusch.slot,
                 "%d.%d future UL_tti_req's frame.slot %d.%d does not match PUSCH %d.%d\n",
                 frame, slot,
                 future_ul_tti_req->SFN,
                 future_ul_tti_req->Slot,
-                sched_ctrl->sched_pusch->frame,
-                sched_ctrl->sched_pusch->slot);
+                sched_ctrl->sched_pusch.frame,
+                sched_ctrl->sched_pusch.slot);
     nfapi_nr_ul_dci_request_t *ul_dci_req = &RC.nrmac[module_id]->UL_dci_req[0];
     ul_dci_req->SFN = frame;
     ul_dci_req->Slot = slot;
@@ -577,7 +577,7 @@ void nr_schedule_ulsch(module_id_t module_id,
 
     const struct NR_PUSCH_TimeDomainResourceAllocationList *tdaList =
       sched_ctrl->active_ubwp->bwp_Common->pusch_ConfigCommon->choice.setup->pusch_TimeDomainAllocationList;
-    const int tda = sched_ctrl->sched_pusch->time_domain_allocation;
+    const int tda = sched_ctrl->sched_pusch.time_domain_allocation;
     const int startSymbolAndLength = tdaList->list.array[tda]->startSymbolAndLength;
     int StartSymbolIndex, NrOfSymbols;
     SLIV2SL(startSymbolAndLength,&StartSymbolIndex,&NrOfSymbols);
@@ -592,7 +592,7 @@ void nr_schedule_ulsch(module_id_t module_id,
     NR_UE_ul_harq_t *cur_harq = &UE_info->UE_sched_ctrl[UE_id].ul_harq_processes[harq_id];
 
     cur_harq->state = ACTIVE_SCHED;
-    cur_harq->last_tx_slot = sched_ctrl->sched_pusch->slot;
+    cur_harq->last_tx_slot = sched_ctrl->sched_pusch.slot;
 
     uint8_t tpc0 = UE_info->UE_sched_ctrl[UE_id].tpc0;
     NR_CellGroupConfig_t *secondaryCellGroup = UE_info->secondaryCellGroup[UE_id];
@@ -611,9 +611,9 @@ void nr_schedule_ulsch(module_id_t module_id,
                                                            tda,
                                                            StartSymbolIndex,
                                                            NrOfSymbols,
-                                                           sched_ctrl->sched_pusch->mcs,
-                                                           sched_ctrl->sched_pusch->rbStart,
-                                                           sched_ctrl->sched_pusch->rbSize,
+                                                           sched_ctrl->sched_pusch.mcs,
+                                                           sched_ctrl->sched_pusch.rbStart,
+                                                           sched_ctrl->sched_pusch.rbSize,
                                                            tpc0,
                                                            harq_id,
                                                            cur_harq);
@@ -622,6 +622,6 @@ void nr_schedule_ulsch(module_id_t module_id,
     if (cur_harq->round == 0)
       UE_info->mac_stats[UE_id].ulsch_total_bytes_scheduled += pusch_pdu->pusch_data.tb_size;
 
-    sched_ctrl->sched_pusch->rbSize = 0;
+    memset(&sched_ctrl->sched_pusch, 0, sizeof(sched_ctrl->sched_pusch));
   }
 }
