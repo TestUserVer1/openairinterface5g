@@ -452,6 +452,7 @@ typedef struct {
   uint8_t rate_matching_ind;
   uint8_t zp_csi_rs_trigger;
   uint8_t mcs;
+  uint8_t mcs_table;
   uint8_t ndi;
   uint8_t rv;
   uint8_t tb2_mcs;

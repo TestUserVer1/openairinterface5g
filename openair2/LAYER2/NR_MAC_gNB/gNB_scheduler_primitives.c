@@ -453,6 +453,7 @@ void nr_fill_nfapi_dl_pdu(int Mod_idP,
   const int bwp_id = sched_ctrl->active_bwp->bwp_Id;
   const int nrOfLayers = 1;
   const int mcs = sched_ctrl->mcs;
+  const int mcs_table_index = sched_ctrl->mcsTableIdx;
 
   AssertFatal(secondaryCellGroup->spCellConfig->spCellConfigDedicated->downlinkBWP_ToAddModList->list.count == 1,
 	      "downlinkBWP_ToAddModList has %d BWP!\n",
@@ -491,10 +492,10 @@ void nr_fill_nfapi_dl_pdu(int Mod_idP,
     pdsch_pdu_rel15->CyclicPrefix = 0;
 
   pdsch_pdu_rel15->NrOfCodewords = 1;
-  pdsch_pdu_rel15->targetCodeRate[0] = nr_get_code_rate_dl(mcs,0);
+  pdsch_pdu_rel15->targetCodeRate[0] = nr_get_code_rate_dl(mcs, mcs_table_index);
   pdsch_pdu_rel15->qamModOrder[0] = 2;
   pdsch_pdu_rel15->mcsIndex[0] = mcs;
-  pdsch_pdu_rel15->mcsTable[0] = 0;
+  pdsch_pdu_rel15->mcsTable[0] = mcs_table_index;
   pdsch_pdu_rel15->rvIndex[0] = nr_rv_round_map[round];
   pdsch_pdu_rel15->dataScramblingId = *scc->physCellId;
   pdsch_pdu_rel15->nrOfLayers = nrOfLayers;
