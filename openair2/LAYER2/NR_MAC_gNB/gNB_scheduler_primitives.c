@@ -647,34 +647,28 @@ void nr_fill_nfapi_dl_pdu(int Mod_idP,
 nfapi_nr_pusch_pdu_t *nr_fill_nfapi_ul_pdu(int mod_id,
                           nfapi_nr_ul_tti_request_t *ul_tti_req,
                           nfapi_nr_ul_dci_request_t *ul_dci_req,
-                          NR_sched_pusch_t *pusch_sched,
                           NR_CellGroupConfig_t *secondaryCellGroup,
-                          NR_BWP_Downlink_t *bwp,
-                          NR_BWP_Uplink_t *ubwp,
                           rnti_t rnti,
-                          NR_SearchSpace_t *ss,
-                          NR_ControlResourceSet_t *coreset,
-                          uint8_t aggregation_level,
-                          int cce_index,
+                          NR_UE_sched_ctrl_t *sched_ctrl,
+                          NR_sched_pusch_t *sched_pusch,
                           int time_domain_assignment,
                           int StartSymbolIndex,
                           int NrOfSymbols,
-                          uint8_t mcs,
-                          int rbStart,
-                          int rbSize,
                           uint8_t tpc0,
                           int8_t harq_id,
                           NR_UE_ul_harq_t *harq) {
   gNB_MAC_INST *nr_mac = RC.nrmac[mod_id];
   NR_COMMON_channels_t *cc = nr_mac->common_channels;
   NR_ServingCellConfigCommon_t *scc = cc->ServingCellConfigCommon;
+  const NR_BWP_Downlink_t *bwp = sched_ctrl->active_bwp;
+  const NR_BWP_Uplink_t *ubwp = sched_ctrl->active_ubwp;
   NR_PUSCH_Config_t *pusch_Config = ubwp->bwp_Dedicated->pusch_Config->choice.setup;
   const struct NR_PUSCH_TimeDomainResourceAllocationList *tdaList =
     ubwp->bwp_Common->pusch_ConfigCommon->choice.setup->pusch_TimeDomainAllocationList;
 
 
   int dci_formats[2];
-  if (ss->searchSpaceType->choice.ue_Specific->dci_Formats)
+  if (sched_ctrl->search_space->searchSpaceType->choice.ue_Specific->dci_Formats)
     dci_formats[0]  = NR_UL_DCI_FORMAT_0_1;
   else
     dci_formats[0]  = NR_UL_DCI_FORMAT_0_0;
@@ -708,7 +702,7 @@ nfapi_nr_pusch_pdu_t *nr_fill_nfapi_ul_pdu(int mod_id,
   else
     pusch_pdu->data_scrambling_id = *scc->physCellId;
 
-  pusch_pdu->mcs_index = mcs;
+  pusch_pdu->mcs_index = sched_pusch->mcs;
   const int target_ss = NR_SearchSpace__searchSpaceType_PR_ue_Specific;
   if (pusch_pdu->transform_precoding)
     pusch_pdu->mcs_table = get_pusch_mcs_table(pusch_Config->mcs_Table,
@@ -741,8 +735,8 @@ nfapi_nr_pusch_pdu_t *nr_fill_nfapi_ul_pdu(int mod_id,
   AssertFatal(pusch_Config->resourceAllocation == NR_PUSCH_Config__resourceAllocation_resourceAllocationType1,
               "Only frequency resource allocation type 1 is currently supported\n");
   pusch_pdu->resource_alloc = 1; //type 1
-  pusch_pdu->rb_start = rbStart;
-  pusch_pdu->rb_size = rbSize;
+  pusch_pdu->rb_start = sched_pusch->rbStart;
+  pusch_pdu->rb_size = sched_pusch->rbSize;
   pusch_pdu->vrb_to_prb_mapping = 0;
 
   if (pusch_Config->frequencyHopping==NULL)
@@ -860,12 +854,12 @@ nfapi_nr_pusch_pdu_t *nr_fill_nfapi_ul_pdu(int mod_id,
   nr_configure_pdcch(nr_mac,
                      pdcch_pdu_rel15,
                      rnti,
-                     ss,
-                     coreset,
+                     sched_ctrl->search_space,
+                     sched_ctrl->coreset,
                      scc,
                      bwp,
-                     aggregation_level,
-                     cce_index);
+                     sched_ctrl->aggregation_level,
+                     sched_ctrl->cce_index);
 
   dci_pdu_rel15_t dci_pdu_rel15[MAX_DCI_CORESET];
   memset(dci_pdu_rel15, 0, sizeof(dci_pdu_rel15));
