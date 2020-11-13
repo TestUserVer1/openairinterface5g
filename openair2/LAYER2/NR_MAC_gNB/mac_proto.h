@@ -156,7 +156,7 @@ void nr_fill_nfapi_dl_pdu(int Mod_id,
                           int harq_pid,
                           int ndi,
                           int round,
-													int UE_beam_index);
+                          int UE_beam_index);
 
 void nr_rx_acknack(nfapi_nr_uci_pusch_pdu_t *uci_pusch,
                    nfapi_nr_uci_pucch_pdu_format_0_1_t *uci_01,
@@ -246,7 +246,7 @@ void nr_configure_dci(gNB_MAC_INST *nr_mac,
                       NR_ControlResourceSet_t *coreset,
                       NR_ServingCellConfigCommon_t *scc,
                       NR_BWP_Downlink_t *bwp,
-											uint8_t beam_index,
+		      uint8_t beam_index,
                       uint8_t aggregation_level,
                       int CCEIndex);
 
@@ -343,8 +343,6 @@ int get_dlscs(nfapi_nr_config_request_t *cfg);
 int get_ulscs(nfapi_nr_config_request_t *cfg);
 
 int get_symbolsperslot(nfapi_nr_config_request_t *cfg);
-
-int32_t get_nr_uldl_offset(int nr_bandP);
 
 void config_nr_mib(int Mod_idP, 
                    int CC_idP,
