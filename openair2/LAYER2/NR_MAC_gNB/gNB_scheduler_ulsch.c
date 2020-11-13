@@ -484,14 +484,7 @@ void nr_simple_ulsch_preprocessor(module_id_t module_id,
   int K2 = get_K2(sched_ctrl->active_ubwp, tda, mu);
   const int sched_frame = frame + (slot + K2 >= num_slots_per_tdd);
   const int sched_slot = (slot + K2) % num_slots_per_tdd;
-  /* check if slot is UL, and for phy test verify that it is in first TDD
-   * period, slot 8 (for K2=6, this is at slot 2 in the gNB; because of UE
-   * limitations).  Note that if K2 or the TDD configuration is changed, below
-   * conditions might exclude each other and never be true */
-  const bool transmit =
-      is_xlsch_in_slot(ulsch_in_slot_bitmap, sched_slot)
-      && (!get_softmodem_params()->phy_test || sched_slot == 8);
-  if (!transmit)
+  if (!is_xlsch_in_slot(ulsch_in_slot_bitmap, sched_slot))
     return;
 
   /* get first, largest unallocated region */
