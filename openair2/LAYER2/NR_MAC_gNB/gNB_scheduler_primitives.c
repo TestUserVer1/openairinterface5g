@@ -651,6 +651,7 @@ nfapi_nr_pusch_pdu_t *nr_fill_nfapi_ul_pdu(int mod_id,
                           rnti_t rnti,
                           NR_UE_sched_ctrl_t *sched_ctrl,
                           NR_sched_pusch_t *sched_pusch,
+                          uint8_t transform_precoding,
                           int time_domain_assignment,
                           int StartSymbolIndex,
                           int NrOfSymbols,
@@ -692,16 +693,12 @@ nfapi_nr_pusch_pdu_t *nr_fill_nfapi_ul_pdu(int mod_id,
   pusch_pdu->subcarrier_spacing = ubwp->bwp_Common->genericParameters.subcarrierSpacing;
   pusch_pdu->cyclic_prefix = 0;
 
-  if (!pusch_Config->transformPrecoder)
-    pusch_pdu->transform_precoding = !scc->uplinkConfigCommon->initialUplinkBWP->rach_ConfigCommon->choice.setup->msg3_transformPrecoder;
-  else
-    pusch_pdu->transform_precoding = *pusch_Config->transformPrecoder;
-
   if (pusch_Config->dataScramblingIdentityPUSCH)
     pusch_pdu->data_scrambling_id = *pusch_Config->dataScramblingIdentityPUSCH;
   else
     pusch_pdu->data_scrambling_id = *scc->physCellId;
 
+  pusch_pdu->transform_precoding = transform_precoding;
   pusch_pdu->mcs_index = sched_pusch->mcs;
   const int target_ss = NR_SearchSpace__searchSpaceType_PR_ue_Specific;
   if (pusch_pdu->transform_precoding)

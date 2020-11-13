@@ -543,6 +543,7 @@ void nr_schedule_ulsch(module_id_t module_id,
   RC.nrmac[module_id]->pre_processor_ul(
       module_id, frame, slot, num_slots_per_tdd, ulsch_in_slot_bitmap);
 
+  NR_ServingCellConfigCommon_t *scc = RC.nrmac[module_id]->common_channels[0].ServingCellConfigCommon;
   NR_UE_info_t *UE_info = &RC.nrmac[module_id]->UE_info;
   const NR_UE_list_t *UE_list = &UE_info->list;
   for (int UE_id = UE_list->head; UE_id >= 0; UE_id = UE_list->next[UE_id]) {
@@ -575,11 +576,13 @@ void nr_schedule_ulsch(module_id_t module_id,
     int StartSymbolIndex, NrOfSymbols;
     SLIV2SL(startSymbolAndLength,&StartSymbolIndex,&NrOfSymbols);
 
+    NR_PUSCH_Config_t *pusch_Config = sched_ctrl->active_ubwp->bwp_Dedicated->pusch_Config->choice.setup;
+    uint8_t transform_precoding = 0;
+    if (!pusch_Config->transformPrecoder)
+      transform_precoding = !scc->uplinkConfigCommon->initialUplinkBWP->rach_ConfigCommon->choice.setup->msg3_transformPrecoder;
+    else
+      transform_precoding = *pusch_Config->transformPrecoder;
 
-    // --------------------------------------------------------------------------------------------------------------------------------------------
-
-    //Pusch Allocation in frequency domain [TS38.214, sec 6.1.2.2]
-    //Optional Data only included if indicated in pduBitmap
     int8_t harq_id = select_ul_harq_pid(&UE_info->UE_sched_ctrl[UE_id]);
     if (harq_id < 0) return;
     NR_UE_ul_harq_t *cur_harq = &UE_info->UE_sched_ctrl[UE_id].ul_harq_processes[harq_id];
@@ -596,6 +599,7 @@ void nr_schedule_ulsch(module_id_t module_id,
                                                            rnti,
                                                            sched_ctrl,
                                                            &sched_ctrl->sched_pusch,
+                                                           transform_precoding,
                                                            tda,
                                                            StartSymbolIndex,
                                                            NrOfSymbols,
