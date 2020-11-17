@@ -106,7 +106,7 @@ int nr_generate_dlsch_pdu(module_id_t module_idP,
       ((NR_MAC_CE_TA *) ce_ptr)->TAGID = tag_id;
     }
 
-    LOG_D(MAC, "NR MAC CE timing advance command = %d (%d) TAG ID = %d\n", timing_advance_cmd, ((NR_MAC_CE_TA *) ce_ptr)->TA_COMMAND, tag_id);
+    LOG_I(MAC, "NR MAC CE timing advance command = %d (%d) TAG ID = %d\n", timing_advance_cmd, ((NR_MAC_CE_TA *) ce_ptr)->TA_COMMAND, tag_id);
     mac_ce_size = sizeof(NR_MAC_CE_TA);
     // Copying  bytes for MAC CEs to the mac pdu pointer
     memcpy((void *) mac_pdu_ptr, (void *) ce_ptr, mac_ce_size);
@@ -502,12 +502,22 @@ void nr_simple_dlsch_preprocessor(module_id_t module_id,
   if (sched_ctrl->num_total_bytes == 0
       && !sched_ctrl->ta_apply) /* If TA should be applied, give at least one RB */
     return;
-  LOG_D(MAC,
-        "%d.%d, DTCH%d->DLSCH, RLC status %d bytes\n",
-        frame,
-        slot,
-        lcid,
-        sched_ctrl->rlc_status[lcid].bytes_in_buffer);
+  if (sched_ctrl->num_total_bytes > 0)
+    LOG_W(MAC,
+          "%d.%d, DTCH%d->DLSCH, RLC status %d bytes TA %d\n",
+          frame,
+          slot,
+          lcid,
+          sched_ctrl->rlc_status[lcid].bytes_in_buffer,
+          sched_ctrl->ta_apply);
+  //else
+  //  LOG_I(MAC,
+  //        "%d.%d, DTCH%d->DLSCH, RLC status %d bytes TA %d\n",
+  //        frame,
+  //        slot,
+  //        lcid,
+  //        sched_ctrl->rlc_status[lcid].bytes_in_buffer,
+  //        sched_ctrl->ta_apply);
 
   /* Find a free CCE */
   const int target_ss = NR_SearchSpace__searchSpaceType_PR_ue_Specific;
@@ -683,6 +693,10 @@ void nr_schedule_ue_spec(module_id_t module_id,
     harq->is_waiting = 1;
     UE_info->mac_stats[UE_id].dlsch_rounds[harq->round]++;
 
+    LOG_I(MAC, "%4d.%2d RNTI %04x start %d RBS %d MCS %d TBS %d HARQ PID %d round %d\n",
+          frame, slot, rnti, sched_ctrl->rbStart, sched_ctrl->rbSize, sched_ctrl->mcs,
+          TBS, current_harq_pid, harq->round);
+
     nfapi_nr_dl_tti_request_body_t *dl_req = &gNB_mac->DL_req[CC_id].dl_tti_request_body;
     nr_fill_nfapi_dl_pdu(module_id,
                          dl_req,
@@ -777,7 +791,7 @@ void nr_schedule_ue_spec(module_id_t module_id,
         num_sdus++;
       }
       else if (get_softmodem_params()->phy_test) {
-        LOG_D(MAC, "Configuring DL_TX in %d.%d: random data\n", frame, slot);
+        LOG_I(MAC, "Configuring DL_TX in %d.%d: random data\n", frame, slot);
         // fill dlsch_buffer with random data
         for (int i = 0; i < TBS; i++)
           mac_sdus[i] = (unsigned char) (lrand48()&0xff);
